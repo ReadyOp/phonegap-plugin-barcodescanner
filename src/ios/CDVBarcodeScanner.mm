@@ -54,7 +54,7 @@
 @property (nonatomic, retain) CDVbcsViewController*        viewController;
 @property (nonatomic, retain) AVCaptureSession*           captureSession;
 @property (nonatomic, retain) AVCaptureVideoPreviewLayer* previewLayer;
-@property (nonatomic, retain) NSString*                   alternateXib;
+@property (nonatomic, retain) NSString*                   alternate;
 @property (nonatomic, retain) NSMutableArray*             results;
 @property (nonatomic, retain) NSString*                   formats;
 @property (nonatomic)         BOOL                        is1D;
@@ -68,7 +68,7 @@
 @property (nonatomic)         BOOL                        isSuccessBeepEnabled;
 
 
-- (id)initWithPlugin:(CDVBarcodeScanner*)plugin callback:(NSString*)callback parentViewController:(UIViewController*)parentViewController alterateOverlayXib:(NSString *)alternateXib;
+- (id)initWithPlugin:(CDVBarcodeScanner*)plugin callback:(NSString*)callback parentViewController:(UIViewController*)parentViewController alterateOverlay:(NSString *)alternate;
 - (void)scanBarcode;
 - (void)barcodeScanSucceeded:(NSString*)text format:(NSString*)format;
 - (void)barcodeScanFailed:(NSString*)message;
@@ -96,7 +96,7 @@
 //------------------------------------------------------------------------------
 @interface CDVbcsViewController : UIViewController <CDVBarcodeScannerOrientationDelegate> {}
 @property (nonatomic, retain) CDVbcsProcessor*  processor;
-@property (nonatomic, retain) NSString*        alternateXib;
+@property (nonatomic, retain) NSString*        alternate;
 @property (nonatomic)         BOOL             shutterPressed;
 @property (nonatomic, retain) IBOutlet UIView* overlayView;
 @property (nonatomic, retain) UIToolbar * toolbar;
@@ -104,7 +104,7 @@
 // unsafe_unretained is equivalent to assign - used to prevent retain cycles in the property below
 @property (nonatomic, unsafe_unretained) id orientationDelegate;
 
-- (id)initWithProcessor:(CDVbcsProcessor*)processor alternateOverlay:(NSString *)alternateXib;
+- (id)initWithProcessor:(CDVbcsProcessor*)processor alternateOverlay:(NSString *)alternate;
 - (void)startCapturing;
 - (UIView*)buildOverlayView;
 - (UIImage*)buildReticleImage;
@@ -172,8 +172,8 @@
     BOOL disableAnimations = [options[@"disableAnimations"] boolValue];
     BOOL disableSuccessBeep = [options[@"disableSuccessBeep"] boolValue];
 
-    // We allow the user to define an alternate xib file for loading the overlay.
-    NSString *overlayXib = options[@"overlayXib"];
+    // We allow the user to define an alternate overlay, either by name or /w a specific Xib filename
+    NSString *overlay = options[@"overlay"];
 
     capabilityError = [self isScanNotPossible];
     if (capabilityError) {
@@ -193,7 +193,7 @@
                 initWithPlugin:self
                       callback:callback
           parentViewController:self.viewController
-            alterateOverlayXib:overlayXib
+             alterateOverlay:overlay
             ];
     // queue [processor scanBarcode] to run on the event loop
 
@@ -288,7 +288,7 @@
 @synthesize viewController       = _viewController;
 @synthesize captureSession       = _captureSession;
 @synthesize previewLayer         = _previewLayer;
-@synthesize alternateXib         = _alternateXib;
+@synthesize alternate            = _alternate;
 @synthesize is1D                 = _is1D;
 @synthesize is2D                 = _is2D;
 @synthesize capturing            = _capturing;
@@ -300,14 +300,14 @@ SystemSoundID _soundFileObject;
 - (id)initWithPlugin:(CDVBarcodeScanner*)plugin
             callback:(NSString*)callback
 parentViewController:(UIViewController*)parentViewController
-  alterateOverlayXib:(NSString *)alternateXib {
+     alterateOverlay:(NSString *)alternate {
     self = [super init];
     if (!self) return self;
 
     self.plugin               = plugin;
     self.callback             = callback;
     self.parentViewController = parentViewController;
-    self.alternateXib         = alternateXib;
+    self.alternate         = alternate;
 
     self.is1D      = YES;
     self.is2D      = YES;
@@ -328,7 +328,7 @@ parentViewController:(UIViewController*)parentViewController
     self.viewController = nil;
     self.captureSession = nil;
     self.previewLayer = nil;
-    self.alternateXib = nil;
+    self.alternate = nil;
     self.results = nil;
 
     self.capturing = NO;
@@ -348,7 +348,7 @@ parentViewController:(UIViewController*)parentViewController
         return;
     }
 
-    self.viewController = [[CDVbcsViewController alloc] initWithProcessor: self alternateOverlay:self.alternateXib];
+    self.viewController = [[CDVbcsViewController alloc] initWithProcessor: self alternateOverlay:self.alternate];
     // here we set the orientation delegate to the MainViewController of the app (orientation controlled in the Project Settings)
     self.viewController.orientationDelegate = self.plugin.viewController;
 
@@ -358,10 +358,7 @@ parentViewController:(UIViewController*)parentViewController
 
 //--------------------------------------------------------------------------
 - (void)openDialog {
-    [self.parentViewController
-     presentViewController:self.viewController
-     animated:self.isTransitionAnimated completion:nil
-     ];
+    [self.parentViewController presentViewController:self.viewController animated:self.isTransitionAnimated completion:nil];
 }
 
 //--------------------------------------------------------------------------
@@ -541,7 +538,7 @@ parentViewController:(UIViewController*)parentViewController
     [output setMetadataObjectTypes:[self formatObjectTypes]];
 
     // setup capture preview layer
-    self.previewLayer = [AVCaptureVideoPreviewLayer layerWithSession:captureSession];
+    self.previewLayer = [AVCaptureVideoPreviewLayer layerWithSession: captureSession];
     self.previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
 
     // run on next event loop pass [captureSession startRunning]
@@ -731,17 +728,17 @@ parentViewController:(UIViewController*)parentViewController
 @implementation CDVbcsViewController
 @synthesize processor      = _processor;
 @synthesize shutterPressed = _shutterPressed;
-@synthesize alternateXib   = _alternateXib;
+@synthesize alternate   = _alternate;
 @synthesize overlayView    = _overlayView;
 
 //--------------------------------------------------------------------------
-- (id)initWithProcessor:(CDVbcsProcessor*)processor alternateOverlay:(NSString *)alternateXib {
+- (id)initWithProcessor:(CDVbcsProcessor*)processor alternateOverlay:(NSString *)alternate {
     self = [super init];
     if (!self) return self;
 
     self.processor = processor;
     self.shutterPressed = NO;
-    self.alternateXib = alternateXib;
+    self.alternate = alternate;
     self.overlayView = nil;
     return self;
 }
@@ -751,7 +748,7 @@ parentViewController:(UIViewController*)parentViewController
     self.view = nil;
     self.processor = nil;
     self.shutterPressed = NO;
-    self.alternateXib = nil;
+    self.alternate = nil;
     self.overlayView = nil;
 }
 
@@ -771,6 +768,19 @@ parentViewController:(UIViewController*)parentViewController
     self.processor.previewLayer.frame = self.view.bounds;
 }
 
+- (CGRect)convertRectOfInterest: (CGRect)rect
+{
+    CGRect overlayRect = self.view.bounds;
+    CGSize overlaySize = overlayRect.size;
+
+    CGFloat x = 1 / (overlaySize.width / rect.origin.x);
+    CGFloat y = 1 / (overlaySize.height / rect.origin.y);
+    CGFloat w = 1 / (overlaySize.width / rect.size.width);
+    CGFloat h = 1 / (overlaySize.height / rect.size.height);
+
+    return CGRectMake(x, y, w, h);
+}
+
 //--------------------------------------------------------------------------
 - (void)viewDidAppear:(BOOL)animated {
     // setup capture preview layer
@@ -781,12 +791,15 @@ parentViewController:(UIViewController*)parentViewController
     if ([previewLayer.connection isVideoOrientationSupported]) {
         previewLayer.connection.videoOrientation = [self interfaceOrientationToVideoOrientation:[UIApplication sharedApplication].statusBarOrientation];
     }
-
     [self.view.layer insertSublayer:previewLayer below:[[self.view.layer sublayers] objectAtIndex:0]];
-
     [self.view addSubview:[self buildOverlayView]];
-    [self startCapturing];
 
+    // Ensure the scanenr only accepts input from within the preview area
+    AVCaptureMetadataOutput *output = [[self.processor.captureSession outputs] firstObject];
+    CGRect rectOfInterest = [self convertRectOfInterest: self.reticleView.frame];
+    [output setRectOfInterest: rectOfInterest];
+
+    [self startCapturing];
     [super viewDidAppear:animated];
 }
 
@@ -833,7 +846,7 @@ parentViewController:(UIViewController*)parentViewController
 //--------------------------------------------------------------------------
 - (UIView *)buildOverlayViewFromXib
 {
-    [[NSBundle mainBundle] loadNibNamed:self.alternateXib owner:self options:NULL];
+    [[NSBundle mainBundle] loadNibNamed:self.alternate owner:self options:NULL];
 
     if ( self.overlayView == nil )
     {
@@ -854,11 +867,13 @@ parentViewController:(UIViewController*)parentViewController
 }
 
 //--------------------------------------------------------------------------
-- (UIView*)buildOverlayView {
-
-    if ( nil != self.alternateXib )
-    {
-        return [self buildOverlayViewFromXib];
+- (UIView*)buildOverlayView
+{
+    if (nil != self.alternate) {
+        BOOL useXib = [self.alternate caseInsensitiveCompare: @"default"] != NSOrderedSame && [self.alternate caseInsensitiveCompare: @"document"] != NSOrderedSame;
+        if (useXib) {
+            return [self buildOverlayViewFromXib];
+        }
     }
     CGRect bounds = self.view.frame;
     bounds = CGRectMake(0, 0, bounds.size.width, bounds.size.height);
@@ -952,45 +967,53 @@ parentViewController:(UIViewController*)parentViewController
 
 //--------------------------------------------------------------------------
 
-#define RETICLE_SIZE    500.0f
-#define RETICLE_WIDTH    10.0f
-#define RETICLE_OFFSET   60.0f
+#define RETICLE_BORDER    5.0f
 #define RETICLE_ALPHA     0.4f
 
 //-------------------------------------------------------------------------
-// builds the green box and red line
+// builds the scanner outline box and guide line
 //-------------------------------------------------------------------------
 - (UIImage*)buildReticleImage {
-    UIImage* result;
-    UIGraphicsBeginImageContext(CGSizeMake(RETICLE_SIZE, RETICLE_SIZE));
+    BOOL isDocument = (self.alternate != nil && [self.alternate caseInsensitiveCompare: @"document"] == NSOrderedSame);
+    CGFloat width = 500;
+    CGFloat height = (!isDocument) ? 500.0f : 350.0f;
+    CGFloat offset = (!isDocument) ? 75.0f : 50.0f;
+
+    CGSize bounds = CGSizeMake(width, height);
+    UIGraphicsBeginImageContext(bounds);
     CGContextRef context = UIGraphicsGetCurrentContext();
 
-    if (self.processor.is1D) {
-        UIColor* color = [UIColor colorWithRed:1.0 green:0.0 blue:0.0 alpha:RETICLE_ALPHA];
+    if (!isDocument && self.processor.is1D) {
+        UIColor* color = [UIColor colorWithRed:1.0 green:0.0 blue:0.0 alpha: RETICLE_ALPHA];
         CGContextSetStrokeColorWithColor(context, color.CGColor);
-        CGContextSetLineWidth(context, RETICLE_WIDTH);
+
+        CGContextSetLineWidth(context, RETICLE_BORDER);
         CGContextBeginPath(context);
-        CGFloat lineOffset = (CGFloat) (RETICLE_OFFSET+(0.5*RETICLE_WIDTH));
-        CGContextMoveToPoint(context, lineOffset, RETICLE_SIZE/2);
-        CGContextAddLineToPoint(context, RETICLE_SIZE-lineOffset, (CGFloat) (0.5*RETICLE_SIZE));
+        CGFloat lineOffset = (CGFloat) (offset + (0.5 * RETICLE_BORDER));
+        CGContextMoveToPoint(context, lineOffset, height / 2);
+        CGContextAddLineToPoint(context, width - lineOffset, (CGFloat)(0.5 * height));
         CGContextStrokePath(context);
     }
 
     if (self.processor.is2D) {
-        UIColor* color = [UIColor colorWithRed:0.0 green:1.0 blue:0.0 alpha:RETICLE_ALPHA];
+        UIColor *color = [UIColor colorWithRed:1.0f green:1.0f blue:1.0f alpha:1.0f];
         CGContextSetStrokeColorWithColor(context, color.CGColor);
-        CGContextSetLineWidth(context, RETICLE_WIDTH);
-        CGContextStrokeRect(context,
-                            CGRectMake(
-                                       RETICLE_OFFSET,
-                                       RETICLE_OFFSET,
-                                       RETICLE_SIZE-2*RETICLE_OFFSET,
-                                       RETICLE_SIZE-2*RETICLE_OFFSET
-                                       )
-                            );
+        CGContextSetLineWidth(context, RETICLE_BORDER);
+
+        CGRect innerRect = CGRectMake(
+            offset,
+            offset,
+            bounds.width - (2 * offset),
+            bounds.height - (2 * offset)
+        );
+        UIBezierPath *border = [UIBezierPath bezierPathWithRoundedRect:innerRect cornerRadius:20.0f];
+        border.lineWidth = 5.0f;
+        [border stroke];
+
+        CGContextAddPath(context, border.CGPath);
     }
 
-    result = UIGraphicsGetImageFromCurrentImageContext();
+    UIImage *result = UIGraphicsGetImageFromCurrentImageContext();
     UIGraphicsEndImageContext();
     return result;
 }
